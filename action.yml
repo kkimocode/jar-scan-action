@@ -1,0 +1,62 @@
+name: "Jar Scan"
+description: "Static malware-pattern scanner for Java / Minecraft mod jars (stealers, droppers, hidden payloads)"
+author: "zkrypton"
+branding:
+  icon: "shield"
+  color: "green"
+
+inputs:
+  paths:
+    description: "Jar files, folders or globs to scan, separated by spaces or newlines"
+    required: true
+    default: "build/libs"
+  fail-on:
+    description: "Fail the step if any finding is at or above this severity: info, low, medium, high, critical, none"
+    required: false
+    default: "high"
+  config:
+    description: "Path to a JSON config file with ignores (skipped if the file doesn't exist)"
+    required: false
+    default: ".jarscan.json"
+  json-report:
+    description: "Where to write the full JSON report (empty to skip)"
+    required: false
+    default: "jar-scan-report.json"
+
+outputs:
+  result:
+    description: "pass or fail"
+    value: ${{ steps.scan.outputs.result }}
+  worst:
+    description: "Worst severity found (or none)"
+    value: ${{ steps.scan.outputs.worst }}
+  findings:
+    description: "Total number of findings, including info"
+    value: ${{ steps.scan.outputs.findings }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: scan
+      shell: bash
+      env:
+        # Inputs go through env vars, never straight into the script, so they can't inject shell code.
+        SCAN_PATHS: ${{ inputs.paths }}
+        SCAN_FAIL_ON: ${{ inputs.fail-on }}
+        SCAN_CONFIG: ${{ inputs.config }}
+        SCAN_JSON: ${{ inputs.json-report }}
+        SCANNER: ${{ github.action_path }}/jar_scanner.py
+      run: |
+        shopt -s globstar nullglob
+        PY=$(command -v python3 || command -v python)
+        args=()
+        # Unquoted on purpose: splits on whitespace and expands globs like mods/**/*.jar
+        for p in $SCAN_PATHS; do args+=("$p"); done
+        if [ ${#args[@]} -eq 0 ]; then
+          echo "::error title=jar-scan::No files matched paths: $SCAN_PATHS"
+          exit 2
+        fi
+        extra=(--fail-on "$SCAN_FAIL_ON")
+        if [ -n "$SCAN_CONFIG" ] && [ -f "$SCAN_CONFIG" ]; then extra+=(--config "$SCAN_CONFIG"); fi
+        if [ -n "$SCAN_JSON" ]; then extra+=(--json "$SCAN_JSON"); fi
+        "$PY" "$SCANNER" "${args[@]}" "${extra[@]}"

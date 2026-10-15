@@ -1,0 +1,20 @@
+{
+  "fail_on": "high",
+  "ignore": [
+    {
+      "rule": "NATIVE_LOAD",
+      "jar": "*discord-rpc*.jar",
+      "reason": "Discord Rich Presence ships its own native library"
+    },
+    {
+      "rule": "EMBEDDED_NATIVE",
+      "jar": "*discord-rpc*.jar",
+      "reason": "same as above"
+    },
+    {
+      "rule": "EXEC",
+      "location": "com/example/mymod/util/OpenFolder.class",
+      "reason": "Opens the screenshots folder with explorer/xdg-open"
+    }
+  ]
+}
